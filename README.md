@@ -4,3 +4,6 @@
 Предварительно следует установить библиотеку pykan, прописав в терминале: pip install pykan.
 
 В ноутбуке "Spectroscopy.ipynb" показано использование KAN_es на примере решения задачи обратной спектроскопии. Для корректной работы ноутбука неоюходимо скачать исходные данные по ссылке [https://disk.yandex.ru/d/07uIsXOGteY3dg] и поместить их в корневую папку данного проекта.
+
+Ссылка на примеры реализации КАН с помощью библиотеки pykan: https://kindxiaoming.github.io/pykan/index.html
+Ссылка на git-репозиторий с pykan: https://github.com/KindXiaoming/pykan/tree/master
