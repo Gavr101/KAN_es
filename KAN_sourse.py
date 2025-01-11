@@ -8,6 +8,9 @@ import torch
 from kan import KAN
 from kan.LBFGS import *
 
+from sklearn.base import RegressorMixin, BaseEstimator, _fit_context
+from sklearn.utils.validation import check_is_fitted
+
 
 class KAN_es(KAN):
     """
@@ -233,3 +236,134 @@ class KAN_es(KAN):
         val_rmse = torch.sqrt(val_loss).cpu().detach().numpy()
 
         return results
+    
+    
+#-- Sci-kit learn KANRegressor --
+
+class KANRegressor(RegressorMixin, BaseEstimator):
+    """Sci-kit learn wrapper for pykan model.
+    
+    Hierarchical inheritance chain of classes:
+    1. pykan.kan --> 
+    2. --> KAN_es: pykan.kan with early stopping, made as in skl.neural_network.MLPRegressor -->
+    3. --> KANRegressor: pykan.kan wrapped in (RegressorMixin, BaseEstimator) for compatibility with skl interface.
+           Uses params, inspired by skl.neural_network.MLPRegressor params logic.
+    """
+
+    # This is a dictionary allowing to define the type of parameters.
+    # It used to validate parameter within the `_fit_context` decorator.
+    
+    _parameter_constraints = {}
+    
+    _d_solver_translation = {
+        'lbfgs': 'LBFGS',
+        'adam': 'Adam'
+    }
+
+    def __init__(self, 
+                 hidden_layer_sizes=None,
+                 grid=3,
+                 k=3,
+                 seed=1,
+                 device='cpu',
+                 kwargs_kan_init={},
+                 tol=1e-3,
+                 n_iter_no_change=10,
+                 solver='lbfgs',
+                 max_iter=100,
+                 learning_rate_init=1.0,
+                 kwargs_dict_kan_fit={}
+                 ):
+        
+        self.hidden_layer_sizes, self.grid, self.k, self.seed, self.device = hidden_layer_sizes, grid, k, seed, device
+        self.kwargs_kan_init = kwargs_kan_init
+        
+        self.tol, self.n_iter_no_change, self.solver, self.max_iter, self.learning_rate_init = tol, n_iter_no_change, solver, max_iter, learning_rate_init
+        self.kwargs_dict_kan_fit = kwargs_dict_kan_fit
+        
+    @_fit_context(prefer_skip_nested_validation=True)
+    def fit(self, X, y):
+        """A reference implementation of a fitting function.
+
+        Parameters
+        ----------
+        X : {array-like, sparse matrix}, shape (n_samples, n_features)
+            The training input samples.
+
+        y : array-like, shape (n_samples,) or (n_samples, n_outputs)
+            The target values (class labels in classification, real numbers in
+            regression).
+
+        Returns
+        -------
+        self : object
+            Returns self.
+        """
+        # `_validate_data` is defined in the `BaseEstimator` class.
+        # It allows to:
+        # - run different checks on the input data;
+        # - define some attributes associated to the input data: `n_features_in_` and
+        #   `feature_names_in_`.
+        
+        # Make sure self.hidden_layer_sizes is a list
+        hidden_layer_sizes = self.hidden_layer_sizes
+        if not hasattr(hidden_layer_sizes, "__iter__"):
+            hidden_layer_sizes = [hidden_layer_sizes]
+        hidden_layer_sizes = list(hidden_layer_sizes)
+        
+        X, y = self._validate_data(X, y, accept_sparse=True)
+        n_features = X.shape[1]
+        
+        # Ensure y is 2D
+        if y.ndim == 1:
+            y = y.reshape((-1, 1))
+            
+        self.n_outputs_ = y.shape[1]
+        
+        self.width = [n_features] + self.hidden_layer_sizes + [self.n_outputs_]
+        self.kan = KAN_es(width=self.width, grid=self.grid, k=self.k, seed=self.seed, device=self.device, **self.kwargs_kan_init)#
+        
+        kan_dataset = {'train_input': torch.tensor(np.array(X), dtype=torch.float),
+                       'train_label': torch.tensor(np.array(y), dtype=torch.float),
+                       # val and test data are required in KAN_es.fit_es . So here we shoyld ignore val and test datasets.
+                       'val_input': torch.tensor([np.array(X[0])], dtype=torch.float),
+                       'val_label': torch.tensor([np.array(y[0])], dtype=torch.float),
+                       'test_input': torch.tensor([np.array(X[-1])], dtype=torch.float),
+                       'test_label': torch.tensor([np.array(y[-1])], dtype=torch.float)}
+        
+        self.kan.train_es(kan_dataset, 
+                          tol=self.tol, 
+                          n_iter_no_change=self.n_iter_no_change,
+                          opt=self._d_solver_translation[self.solver], 
+                          lr = self.learning_rate_init,
+                          steps=self.max_iter,
+                          **self.kwargs_dict_kan_fit
+                          )
+        
+        self.is_fitted_ = True
+        # `fit` should always return `self`
+        return self
+
+    def predict(self, X):
+        """A reference implementation of a predicting function.
+
+        Parameters
+        ----------
+        X : {array-like, sparse matrix}, shape (n_samples, n_features)
+            The training input samples.
+
+        Returns
+        -------
+        y : ndarray of shape (n_samples, n_outputs)
+            The predicted values.
+        """
+        # Check if fit had been called
+        check_is_fitted(self)
+        # We need to set reset=False because we don't want to overwrite `n_features_in_`
+        # `feature_names_in_` but only check that the shape is consistent.
+        X = self._validate_data(X, accept_sparse=True, reset=False)
+        
+        x = torch.tensor(np.array(X), dtype=torch.float)
+        pred = self.kan.forward(x).detach().numpy()
+        
+        return pred
