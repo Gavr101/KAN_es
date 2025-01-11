@@ -326,10 +326,10 @@ class KANRegressor(RegressorMixin, BaseEstimator):
         kan_dataset = {'train_input': torch.tensor(np.array(X), dtype=torch.float),
                        'train_label': torch.tensor(np.array(y), dtype=torch.float),
                        # val and test data are required in KAN_es.fit_es . So here we shoyld ignore val and test datasets.
-                       'val_input': torch.tensor([np.array(X[0])], dtype=torch.float),
-                       'val_label': torch.tensor([np.array(y[0])], dtype=torch.float),
-                       'test_input': torch.tensor([np.array(X[-1])], dtype=torch.float),
-                       'test_label': torch.tensor([np.array(y[-1])], dtype=torch.float)}
+                       'val_input': torch.tensor(np.array([X[0], X[1]]), dtype=torch.float),
+                       'val_label': torch.tensor(np.array([y[0], y[1]]), dtype=torch.float),
+                       'test_input': torch.tensor(np.array([X[-2], X[-1]]), dtype=torch.float),
+                       'test_label': torch.tensor(np.array([y[-2], y[-1]]), dtype=torch.float)}
         
         self.kan.train_es(kan_dataset, 
                           tol=self.tol, 
