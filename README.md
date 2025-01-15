@@ -1,5 +1,5 @@
 # В данном репозитории реализованы две надстройки над библиотекой pykan:
-# 1. class *KAN_sourse.KAN_es*: 
+# 1. class *KAN_sourse.KAN_es* : 
 ## Сеть Колмогорова-Арнольда (КАН) с остановкой по валидационному набору.
 Для использования данного алгоритма используйте класс KAN_es и его метод train_es() из файла KAN_sourse. [es означает "early stopping"].
 
@@ -11,7 +11,7 @@
 
 Ссылка на git-репозиторий с pykan: https://github.com/KindXiaoming/pykan/tree/master
 
-# 2. class *KAN_sourse.KANRegressor*:
+# 2. class *KAN_sourse.KANRegressor* :
 ## Сеть Колмогорова-Арнольда (КАН), обернутый в классы библиотеки *sci-kit learn* (*RegressorMixin*, *BaseEstimator*). 
 Это делает возможным включение его в общий пайплайн *sci-kit learn*: прменение *cross_validate*, *grid_searche*, использование внутри *pipline*, и т.д..
 
@@ -19,6 +19,6 @@
 
 Источник ноутбука: https://www.kaggle.com/code/olanrewajurasheed/california-housing-dataset
 
-Поскольку *sci-kit learn* для представления векторных данных использует *pytorch*, а *pykan*  - *tensorflow*, внутри *KANRegressor* приходится конвертировать эти типы данных друг в друга. В результате чего *KANRegressor* неэффективен в работе по памяти и времени, особенно на больших датасетах.
+Поскольку *sci-kit learn* для представления векторных данных использует *pytorch*, а *pykan*  - *tensorflow*, внутри *KANRegressor* приходится конвертировать эти типы данных друг в друга. В результате чего *KANRegressor* может оказаться неэффективным в работе по памяти и времени, особенно на больших датасетах.
 
-Так, в задаче california-housing-dataset присутствует ~20k примеров; кросс-валидация *KANRegressor(hidden_layer_sizes=[1,])* с 10 фолдами на лэптопе с 11th Gen Intel Core i5 занимеат 22 минуты.
+Так, в задаче california-housing-dataset присутствует ~20k примеров (размерность входного пространства: 8); кросс-валидация *KANRegressor(hidden_layer_sizes=[1,])* с 10 фолдами на лэптопе с 11th Gen Intel Core i5 занимеат 15 минуты.

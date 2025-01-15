@@ -10,6 +10,7 @@ from kan.LBFGS import *
 
 from sklearn.base import RegressorMixin, BaseEstimator, _fit_context
 from sklearn.utils.validation import check_is_fitted
+from sklearn.model_selection import train_test_split
 
 
 class KAN_es(KAN):
@@ -239,6 +240,7 @@ class KAN_es(KAN):
     
     
 #-- Sci-kit learn KANRegressor --
+# ToDo: all done!
 
 class KANRegressor(RegressorMixin, BaseEstimator):
     """Sci-kit learn wrapper for pykan model.
@@ -261,25 +263,115 @@ class KANRegressor(RegressorMixin, BaseEstimator):
     }
 
     def __init__(self, 
+                 # kan.__init__ args
                  hidden_layer_sizes=None,
                  grid=3,
                  k=3,
                  seed=1,
                  device='cpu',
-                 kwargs_kan_init={},
+                 # kan.train_es args
                  tol=1e-3,
                  n_iter_no_change=10,
                  solver='lbfgs',
                  max_iter=100,
                  learning_rate_init=1.0,
-                 kwargs_dict_kan_fit={}
+                 validation_fraction=0.1,
+                 # additional kan.__init__ args
+                 mult_arity = 2, noise_scale=0.3, scale_base_mu=0.0, scale_base_sigma=1.0, base_fun='silu', symbolic_enabled=True, affine_trainable=False, grid_eps=0.02, grid_range=[-1, 1], sp_trainable=True, sb_trainable=True, save_act=True, sparse_init=False, auto_save=True, first_init=True, ckpt_path='./model', state_id=0, round=0,
+                 # additional kan.train_es args
+                 log=1, lamb=0., lamb_l1=1., lamb_entropy=2., lamb_coef=0., lamb_coefdiff=0., update_grid=True, grid_update_num=10, loss_fn=None, stop_grid_update_step=50, batch=-1, small_mag_threshold=1e-16, small_reg_factor=1., metrics=None, sglr_avoid=False, save_fig=False, in_vars=None, out_vars=None, beta=3, save_fig_freq=1, img_folder='./video'
                  ):
+        '''
+        Init method. Saving all kan.__init__ and kan.fit args.
+        
+        Args:
+        -----
+            -- kan.__init__ parameteres --
+            hidden_layer_sizes : list
+                the ith element represents the number of neurons in the ith hidden layer.
+            grid : int
+                number of grid intervals. Default: 3.
+            k : int
+                order of piecewise polynomial. Default: 3.
+            mult_arity : int, or list of int lists
+                multiplication arity for each multiplication node (the number of numbers to be multiplied)
+            noise_scale : float
+                initial injected noise to spline.
+            base_fun : str
+                the residual function b(x). Default: 'silu'
+            symbolic_enabled : bool
+                compute (True) or skip (False) symbolic computations (for efficiency). By default: True. 
+            affine_trainable : bool
+                affine parameters are updated or not. Affine parameters include node_scale, node_bias, subnode_scale, subnode_bias
+            grid_eps : float
+                When grid_eps = 1, the grid is uniform; when grid_eps = 0, the grid is partitioned using percentiles of samples. 0 < grid_eps < 1 interpolates between the two extremes.
+            grid_range : list/np.array of shape (2,))
+                setting the range of grids. Default: [-1,1]. This argument is not important if fit(update_grid=True) (by default updata_grid=True)
+            sp_trainable : bool
+                If true, scale_sp is trainable. Default: True.
+            sb_trainable : bool
+                If true, scale_base is trainable. Default: True.
+            device : str
+                device
+            seed : int
+                random seed
+            save_act : bool
+                indicate whether intermediate activations are saved in forward pass
+            sparse_init : bool
+                sparse initialization (True) or normal dense initialization. Default: False.
+            auto_save : bool
+                indicate whether to automatically save a checkpoint once the model is modified
+            state_id : int
+                the state of the model (used to save checkpoint)
+            ckpt_path : str
+                the folder to store checkpoints. Default: './model'
+            round : int
+                the number of times rewind() has been called
+            
+            -- kan.train_es parameteres --
+            tol : float
+                Delta of validation fit which doesn`t count as fitness improvement. (Tolerence of training).
+            n_iter_no_change : int
+                Number of iteration with no fit change to early stopping.
+            solver : str
+                "lbfgs" or "adam"
+            max_iter : int
+                training steps
+            learning_rate_init: float
+                learning rate
+            log : int
+                logging frequency
+            lamb : float
+                overall penalty strength
+            lamb_l1 : float
+                l1 penalty strength
+            lamb_entropy : float
+                entropy penalty strength
+            lamb_coef : float
+                coefficient magnitude penalty strength
+            lamb_coefdiff : float
+                difference of nearby coefficits (smoothness) penalty strength
+            update_grid : bool
+                If True, update grid regularly before stop_grid_update_step
+            grid_update_num : int
+                the number of grid updates before stop_grid_update_step
+            stop_grid_update_step : int
+                no grid updates after this training step
+            batch : int
+                batch size, if -1 then full.
+            small_mag_threshold : float
+                threshold to determine large or small numbers (may want to apply larger penalty to smaller numbers)
+            small_reg_factor : float
+                penalty strength applied to small factors relative to large factos
+            save_fig_freq : int
+                save figure every (save_fig_freq) step
+        '''
         
         self.hidden_layer_sizes, self.grid, self.k, self.seed, self.device = hidden_layer_sizes, grid, k, seed, device
-        self.kwargs_kan_init = kwargs_kan_init
+        self.mult_arity, self.noise_scale, self.scale_base_mu, self.scale_base_sigma, self.base_fun, self.symbolic_enabled, self.affine_trainable, self.grid_eps, self.grid_range, self.sp_trainable, self.sb_trainable, self.save_act, self.sparse_init, self.auto_save, self.first_init, self.ckpt_path, self.state_id, self.round = mult_arity, noise_scale, scale_base_mu, scale_base_sigma, base_fun, symbolic_enabled, affine_trainable, grid_eps, grid_range, sp_trainable, sb_trainable, save_act, sparse_init, auto_save, first_init, ckpt_path, state_id, round
         
-        self.tol, self.n_iter_no_change, self.solver, self.max_iter, self.learning_rate_init = tol, n_iter_no_change, solver, max_iter, learning_rate_init
-        self.kwargs_dict_kan_fit = kwargs_dict_kan_fit
+        self.tol, self.n_iter_no_change, self.solver, self.max_iter, self.learning_rate_init, self.validation_fraction = tol, n_iter_no_change, solver, max_iter, learning_rate_init, validation_fraction
+        self.log, self.lamb, self.lamb_l1, self.lamb_entropy, self.lamb_coef, self.lamb_coefdiff, self.update_grid, self.grid_update_num, self.loss_fn, self.stop_grid_update_step, self.batch, self.small_mag_threshold, self.small_reg_factor, self.metrics, self.sglr_avoid, self.save_fig, self.in_vars, self.out_vars, self.beta, self.save_fig_freq, self.img_folder = log, lamb, lamb_l1, lamb_entropy, lamb_coef, lamb_coefdiff, update_grid, grid_update_num, loss_fn, stop_grid_update_step, batch, small_mag_threshold, small_reg_factor, metrics, sglr_avoid, save_fig, in_vars, out_vars, beta, save_fig_freq, img_folder
         
     @_fit_context(prefer_skip_nested_validation=True)
     def fit(self, X, y):
@@ -318,18 +410,26 @@ class KANRegressor(RegressorMixin, BaseEstimator):
         if y.ndim == 1:
             y = y.reshape((-1, 1))
             
-        self.n_outputs_ = y.shape[1]
+        if not hasattr(self, "is_fitted_"): self.is_fitted_ = False
         
-        self.width = [n_features] + self.hidden_layer_sizes + [self.n_outputs_]
-        self.kan = KAN_es(width=self.width, grid=self.grid, k=self.k, seed=self.seed, device=self.device, **self.kwargs_kan_init)#
+        if not self.is_fitted_:
+            self.n_outputs_ = y.shape[1]
         
-        kan_dataset = {'train_input': torch.tensor(np.array(X), dtype=torch.float),
-                       'train_label': torch.tensor(np.array(y), dtype=torch.float),
-                       # val and test data are required in KAN_es.fit_es . So here we shoyld ignore val and test datasets.
-                       'val_input': torch.tensor(np.array([X[0], X[1]]), dtype=torch.float),
-                       'val_label': torch.tensor(np.array([y[0], y[1]]), dtype=torch.float),
-                       'test_input': torch.tensor(np.array([X[-2], X[-1]]), dtype=torch.float),
-                       'test_label': torch.tensor(np.array([y[-2], y[-1]]), dtype=torch.float)}
+            self.width = [n_features] + self.hidden_layer_sizes + [self.n_outputs_]
+            self.kan = KAN_es(width=self.width, grid=self.grid, k=self.k, seed=self.seed, device=self.device,
+                              mult_arity=self.mult_arity, noise_scale=self.noise_scale, scale_base_mu=self.scale_base_mu, scale_base_sigma=self.scale_base_sigma, base_fun=self.base_fun, symbolic_enabled=self.symbolic_enabled, affine_trainable=self.affine_trainable, grid_eps=self.grid_eps, grid_range=self.grid_range, sp_trainable=self.sp_trainable, sb_trainable=self.sb_trainable, save_act=self.save_act, sparse_init=self.sparse_init, auto_save=self.auto_save, first_init=self.first_init, ckpt_path=self.ckpt_path, state_id=self.state_id, round=self.round)
+        
+        X_train, X_val, y_train, y_val = train_test_split(X, y, 
+                                                        test_size=self.validation_fraction,
+                                                        random_state=self.seed)
+                    
+        kan_dataset = {'train_input': torch.tensor(np.array(X_train), dtype=torch.float),
+                       'train_label': torch.tensor(np.array(y_train), dtype=torch.float),
+                       'val_input': torch.tensor(np.array(X_val), dtype=torch.float),
+                       'val_label': torch.tensor(np.array(y_val), dtype=torch.float),
+                       # Test data is required in KAN_es.fit_es . So here we should ignore test datasets.
+                       'test_input': torch.tensor(np.array([X[0], X[1]]), dtype=torch.float),
+                       'test_label': torch.tensor(np.array([y[0], y[1]]), dtype=torch.float)}
         
         self.kan.train_es(kan_dataset, 
                           tol=self.tol, 
@@ -337,7 +437,7 @@ class KANRegressor(RegressorMixin, BaseEstimator):
                           opt=self._d_solver_translation[self.solver], 
                           lr = self.learning_rate_init,
                           steps=self.max_iter,
-                          **self.kwargs_dict_kan_fit
+                          log=self.log, lamb=self.lamb, lamb_l1=self.lamb_l1, lamb_entropy=self.lamb_entropy, lamb_coef=self.lamb_coef, lamb_coefdiff=self.lamb_coefdiff, update_grid=self.update_grid, grid_update_num=self.grid_update_num, loss_fn=self.loss_fn, stop_grid_update_step=self.stop_grid_update_step, batch=self.batch, small_mag_threshold=self.small_mag_threshold, small_reg_factor=self.small_reg_factor, metrics=self.metrics, sglr_avoid=self.sglr_avoid, save_fig=self.save_fig, in_vars=self.in_vars, out_vars=self.out_vars, beta=self.beta, save_fig_freq=self.save_fig_freq, img_folder=self.img_folder, device=self.device
                           )
         
         self.is_fitted_ = True
