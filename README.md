@@ -20,7 +20,13 @@
 ## Сеть Колмогорова-Арнольда (КАН), обернутый в классы библиотеки *sci-kit learn* (*RegressorMixin*, *BaseEstimator*). 
 Это делает возможным включение его в общий пайплайн *sci-kit learn*: прменение *cross_validate*, *grid_searche*, использование внутри *pipline*, и т.д..
 
-В ноутбуке "Housing_tasks/california-housing-dataset.ipynb" *KANRegressor* применяется к тестовой задаче регрессии и сравнивается с референсными методами. Демонстрируется совместимость *KANRegressor* с методами и классами библиотеки *sci-kit learn*.
+В ноутбуке "Housing_tasks/california-housing-dataset.ipynb" *KANRegressor* применяется к тестовой задаче регрессии и сравнивается с референсными методами. Демонстрируется совместимость *KANRegressor* с методами и классами библиотеки *sci-kit learn*. 
+
+Также, применяется GMDH:
+https://bauman-team.github.io/GMDH_book/intro.html
+https://github.com/bauman-team/GMDH
+
+
 
 Источник ноутбука: https://www.kaggle.com/code/olanrewajurasheed/california-housing-dataset
 
